@@ -1,2 +1,5 @@
 main.dSYM
 .DS_Store
+.idea
+node_modules
+variables.dSYM
