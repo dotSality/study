@@ -5,28 +5,63 @@
     <title>Title</title>
   </head>
   <body>
-    <script src="https://cdn.jsdelivr.net/npm/p5@1.11.13/lib/p5.min.js"></script>
-    <script>
-      let loadedShader;
-      function preload() {
-        loadedShader = loadShader( './shaders/beginner.vert',  './shaders/beginner.frag');
+    <canvas id="canvas" width="600" height="600"></canvas>
+    <script type="importmap">
+      {
+          "imports": {
+               "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+          }
       }
+    </script>
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-      function setup() {
-        createCanvas(600, 600, WEBGL);
+      const canvas = document.getElementById("canvas");
+      const [vertexShader, fragmentShader] = await Promise.all([
+        fetch("./shaders/beginner.vert")
+          .then(r => r.text()),
+        fetch("./shaders/beginner.frag")
+          .then(r => r.text()),
+      ]);
+      const scene = new THREE.Scene();
 
-        shader(loadedShader);
+      const camera = new THREE.PerspectiveCamera(65, canvas.width / canvas.height, 1, 1000);
+      camera.position.set(3, 3, 3);
 
-        noStroke();
-      }
+      const controls = new OrbitControls(camera, canvas);
 
-      function draw() {
-        clear();
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+      });
+      renderer.setSize(canvas.width, canvas.height);
 
-        loadedShader.setUniform('uTime', millis() / 1000);
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(2, 2),
+        new THREE.ShaderMaterial({
+          vertexShader,
+          fragmentShader,
+          glslVersion: THREE.GLSL3,
+          uniforms: {
+            uTime: new THREE.Uniform(0),
+          }
+        })
+      );
 
-        rect(0, 0, width, height);
-      }
+      scene.add(mesh);
+      scene.add(camera);
+
+      renderer.setClearColor(new THREE.Color("black"));
+      const clock = new THREE.Clock();
+      const draw = () => {
+        mesh.material.uniforms.uTime.value = clock.getElapsedTime();
+        renderer.render(scene, camera);
+        controls.update();
+        requestAnimationFrame(draw);
+      };
+
+      draw();
     </script>
   </body>
 </html>
