@@ -316,6 +316,8 @@ MAX(next(), next()) = 3, calls: 3
 Наивная запись двух инструкций в макросе:
 
 ```c
+#include <stdio.h>
+
 #define PRINT_TWICE(s) puts(s); puts(s)
 
 int main(void) {
@@ -349,6 +351,8 @@ ex06b_else.c:7:32: error: 'else' without a previous 'if'
 После блока `{...}` программист по привычке ставит `;` — она закрывает `if`, и `else` повисает без пары. Идиома `do { } while (0)` решает обе проблемы: это **одна** инструкция, и она **требует** `;`:
 
 ```c
+#include <stdio.h>
+
 #define SWAP_INT(a, b) do { int tmp = (a); (a) = (b); (b) = tmp; } while (0)
 
 int main(void) {

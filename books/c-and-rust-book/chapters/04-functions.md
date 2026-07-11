@@ -404,6 +404,8 @@ outside: x=1 y=2
 **Г4.Ч1.З5.** *(понимание)* Не запуская, предскажите вывод и объясните каждую строку через передачу по значению (§4.1.3):
 
 ```c
+#include <stdio.h>
+
 void f(int n) { n = n * 10; printf("f: %d\n", n); }
 int main(void) {
     int k = 3;
@@ -822,6 +824,8 @@ n = 10, doubled = 20
 **Г4.Ч2.З3.** *(понимание)* Определите область видимости каждой переменной и предскажите, скомпилируется ли код; если нет — где ошибка:
 
 ```c
+#include <stdio.h>
+
 int main(void) {
     int a = 1;
     { int b = 2; printf("%d %d\n", a, b); }
@@ -834,6 +838,8 @@ int main(void) {
 **Г4.Ч2.З4.** *(понимание)* Предскажите вывод и объясните разницу через время жизни (§4.2.1–4.2.2):
 
 ```c
+#include <stdio.h>
+
 int f(void) { int n = 0;        n++; return n; }
 int g(void) { static int n = 0; n++; return n; }
 int main(void) {
@@ -848,6 +854,8 @@ int main(void) {
 **Г4.Ч2.З5.** *(понимание)* Почему следующий код не компилируется? Назовите переменную и её область видимости, объясните ошибку и предложите исправление (сохранив разбиение на функции):
 
 ```c
+#include <stdio.h>
+
 void init(void) { int limit = 100; }
 int main(void) { printf("%d\n", limit); return 0; }
 ```
@@ -855,6 +863,8 @@ int main(void) { printf("%d\n", limit); return 0; }
 **Г4.Ч2.З6.** *(понимание)* Предскажите вывод и объясните, что такое затенение (shadowing):
 
 ```c
+#include <stdio.h>
+
 int x = 10;                 // глобальная
 void show(void) { printf("global x = %d\n", x); }
 int main(void) {
@@ -868,6 +878,8 @@ int main(void) {
 **Г4.Ч2.З7.** *(понимание)* Программа передаёт данные между функциями через глобальную переменную:
 
 ```c
+#include <stdio.h>
+
 int result;
 void compute(int a, int b) { result = a + b; }
 int main(void) { compute(3, 4); printf("%d\n", result); return 0; }

@@ -484,6 +484,8 @@ bad_self.c:3:17: error: field 'next' has incomplete type
 **Г8.Ч1.З5.** *(понимание)* Не запуская, предскажите вывод; затем проверьте:
 
 ```c
+#include <stdio.h>
+
 struct point { int x; int y; };
 void f(struct point p) { p.x = 100; }
 void g(struct point *p) { p->x = 200; }
