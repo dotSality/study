@@ -128,6 +128,73 @@ eq('Г10.Ч4.З3 double cover', (()=>{const q2=[-Math.SQRT1_2,0,-Math.SQRT1_2,0]
 eq('Г10.Ч4.З6 nlerp 170°→85°', (()=>{const q=qNlerp([1,0,0,0], qFromAxisAngle([0,1,0],170*D), 0.5);
   return 2*Math.acos(q[0])/D;})(), 85, 1e-6);
 
+// ===== Глава 10: альтернативные решения =====
+// Г10.Ч1.З3 (вар. 2): столбцы R_x(90°) = образы ортов, без умножений
+eq('Г10.Ч1.З3 в2 столбцы', (()=>{const R=m4rotX(90*D);
+  return [R[0],R[1],R[2], R[4],R[5],R[6], R[8],R[9],R[10]];})(), [1,0,0, 0,0,1, 0,-1,0], 1e-12);
+// Г10.Ч1.З4 (вар. 2): сопряжение R_x(90°)R_z(β) = R_y(−β)R_x(90°) ⟹ зависимость от α−β; при pitch=−90° — от α+β
+eq('Г10.Ч1.З4 в2 сопряжение', (()=>{const b=37*D;
+  const L=m4mul(m4rotX(90*D),m4rotZ(b)), R=m4mul(m4rotY(-b),m4rotX(90*D)); return L.map((x,i)=>x-R[i]);})(),
+  new Array(16).fill(0), 1e-12);
+eq('Г10.Ч1.З4 в2 α−β', (()=>{const a=123*D,b=-45*D;
+  const L=m4mul(m4rotY(a),m4mul(m4rotX(90*D),m4rotZ(b))), R=m4mul(m4rotY(a-b),m4rotX(90*D));
+  return L.map((x,i)=>x-R[i]);})(), new Array(16).fill(0), 1e-12);
+eq('Г10.Ч1.З4 в2 pitch=−90° ⟹ α+β', (()=>{const a=45*D,b=-30*D;
+  const L=m4mul(m4rotY(a),m4mul(m4rotX(-90*D),m4rotZ(b))), R=m4mul(m4rotY(a+b),m4rotX(-90*D));
+  return L.map((x,i)=>x-R[i]);})(), new Array(16).fill(0), 1e-12);
+// Г10.Ч2.З3 (вар. 2): кватернионный сэндвич q=(0.5,0.5,0.5,0.5), оба шага
+eq('Г10.Ч2.З3 в2 шаг 1', qMul([0.5,0.5,0.5,0.5],[0,1,0,0]), [-0.5,0.5,0.5,-0.5], 1e-15);
+eq('Г10.Ч2.З3 в2 итог', qRotate([0.5,0.5,0.5,0.5],[1,0,0]), [0,1,0], 1e-15);
+// Г10.Ч2.З5 (вар. 2): ось и угол из антисимметричной части, w = 2 sinθ·n
+const m3=(M,r,c)=>M[(c-1)*4+(r-1)];   // элемент 3×3 из column-major mat4
+const skewAxis=M=>[m3(M,3,2)-m3(M,2,3), m3(M,1,3)-m3(M,3,1), m3(M,2,1)-m3(M,1,2)];
+const trace3=M=>m3(M,1,1)+m3(M,2,2)+m3(M,3,3);
+const Mperm=[0,1,0,0, 0,0,1,0, 1,0,0,0, 0,0,0,1];  // M=[[0,0,1],[1,0,0],[0,1,0]] в column-major
+eq('Г10.Ч2.З5 в2 w = (1,1,1)', skewAxis(Mperm), [1,1,1], 1e-12);
+eq('Г10.Ч2.З5 в2 угол = atan2(‖w‖, tr−1)', Math.atan2(length(skewAxis(Mperm)), trace3(Mperm)-1)/D, 120, 1e-9);
+eq('Г10.Ч2.З5 в2 общий случай (ось (2,−1,3), 53°)', (()=>{const n=normalize([2,-1,3]), a=53*D;
+  const R=qToMat4(qFromAxisAngle(n,a)), w=skewAxis(R);
+  return [...sub(w, scale(n,2*Math.sin(a))), Math.atan2(length(w), trace3(R)-1)/D];})(), [0,0,0, 53], 1e-9);
+eq('Г10.Ч2.З5 в2 вырождение при 180° (w=0, |n| из диагонали)', (()=>{const n=normalize([2,-1,3]);
+  const R=qToMat4(qFromAxisAngle(n,180*D));
+  return [...skewAxis(R), ...[1,2,3].map(i=>Math.sqrt((m3(R,i,i)+1)/2)-Math.abs(n[i-1]))];})(),
+  new Array(6).fill(0), 1e-9);
+// Г10.Ч2.З7 (вар. 2): кватернионное приращение при ω=(0,2,0), dt=0.016 и его первый порядок
+eq('Г10.Ч2.З7 в2 q_Δ', qFromAxisAngle([0,1,0], 2*0.016), [Math.cos(0.016),0,Math.sin(0.016),0], 1e-15);
+eq('Г10.Ч2.З7 в2 первый порядок ≈ точный (<1e−3°)', (()=>{const w=[0,2,0], dt=0.016;
+  const qd=qFromAxisAngle(w, length(w)*dt), q0=qFromAxisAngle([0.3,1,-0.5],40*D);
+  const exact=qMul(qd,q0);
+  const appr=qNormalize(qMul([0,...w],q0).map((x,i)=>q0[i]+0.5*dt*x));
+  const dq=qMul(exact,qConj(appr));
+  return [qNorm(exact), 2*Math.acos(Math.min(1,Math.abs(dq[0])))/D < 1e-3 ? 0 : 1];})(), [1,0], 1e-12);
+// Г10.Ч3.З7 (вар. 2): покомпонентная факторизация ‖pq‖² через тождество Лагранжа
+eq('Г10.Ч3.З7 в2 факторизация и зануления', (()=>{const p=[0.3,-1.2,0.7,2.1], q=[1.7,0.4,-0.9,0.2];
+  const [w1,...v1]=p, [w2,...v2]=q;
+  return [qNorm(qMul(p,q))**2 - (w1**2+dot(v1,v1))*(w2**2+dot(v2,v2)),
+          dot(v1,cross(v1,v2)), dot(v2,cross(v1,v2)),
+          dot(v1,v2)**2 + dot(cross(v1,v2),cross(v1,v2)) - dot(v1,v1)*dot(v2,v2)];})(),
+  [0,0,0,0], 1e-9);
+// Г10.Ч3.З8 (вар. 2): (0.5,0.5,0.5,0.5) переставляет оси по циклу и q³=−1; настоящий 90° осей не переставляет
+eq('Г10.Ч3.З8 в2 цикл осей, q³', (()=>{const q=[0.5,0.5,0.5,0.5];
+  return [...qRotate(q,[1,0,0]), ...qRotate(q,[0,1,0]), ...qRotate(q,[0,0,1]), ...qMul(q,qMul(q,q))];})(),
+  [0,1,0, 0,0,1, 1,0,0, -1,0,0,0], 1e-15);
+eq('Г10.Ч3.З8 в2 образ e₁ при 90°', qRotate(qFromAxisAngle([1,1,1],90*D),[1,0,0]),
+  [1/3, 1/3+1/Math.sqrt(3), 1/3-1/Math.sqrt(3)], 1e-12);
+// Г10.Ч3.З9 (вар. 2): оптимизированная форма v′ = v + w·t + u×t, t = 2(u×v)
+const qRotateFast=(q,v)=>{const [w,...u]=q, t=scale(cross(u,v),2); return add(add(v,scale(t,w)),cross(u,t));};
+eq('Г10.Ч3.З9 в2 fast = сэндвич', (()=>[[[0,1,0],90,[1,0,0]],[[1,1,1],120,[1,0,0]],[[2,-1,3],53,[0.3,0.7,-0.2]],[[0,0,1],180,[1,1,0]]]
+  .flatMap(([ax,an,v])=>{const q=qFromAxisAngle(ax,an*D); return sub(qRotateFast(q,v), qRotate(q,v));}))(),
+  new Array(12).fill(0), 1e-12);
+eq('Г10.Ч3.З9 в2 неединичный q: сэндвич масштабирует, fast — нет', (()=>{const q=[2,0,2,0];
+  return [...qRotate(q,[1,0,0]), ...qRotateFast(q,[1,0,0])];})(), [0,0,-8, -7,0,-8], 1e-12);
+// Г10.Ч4.З6 (вар. 2): slerp линеен по углу, nlerp отстаёт; границы и защита Ω≈0
+const qAng=q=>2*Math.acos(Math.min(1,Math.abs(q[0])))/D;
+eq('Г10.Ч4.З6 в2 t=0.25: slerp 42.5° vs nlerp 35.7688°', (()=>{const q1=[1,0,0,0], q2=qFromAxisAngle([0,1,0],170*D);
+  return [qAng(slerp(q1,q2,0.25)), qAng(qNlerp(q1,q2,0.25))];})(), [42.5, 35.7688], 1e-4);
+eq('Г10.Ч4.З6 в2 slerp границы t=0,1', (()=>{const q1=[1,0,0,0], q2=qFromAxisAngle([0,1,0],170*D);
+  return [...sub(slerp(q1,q2,0),q1), ...sub(slerp(q1,q2,1),q2)];})(), new Array(8).fill(0), 1e-9);
+eq('Г10.Ч4.З6 в2 защита Ω≈0 (нет NaN)', slerp([1,0,0,0], qFromAxisAngle([0,1,0],1e-7*D), 0.5).every(Number.isFinite)?1:0, 1);
+
 // ===== Глава 11 =====
 const mv2=(M,v)=>[M[0][0]*v[0]+M[0][1]*v[1], M[1][0]*v[0]+M[1][1]*v[1]];
 const mm2=(A,B)=>[[A[0][0]*B[0][0]+A[0][1]*B[1][0], A[0][0]*B[0][1]+A[0][1]*B[1][1]],[A[1][0]*B[0][0]+A[1][1]*B[1][0], A[1][0]*B[0][1]+A[1][1]*B[1][1]]];
