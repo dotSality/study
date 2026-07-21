@@ -292,5 +292,87 @@ eq('З6 сквозной тест пайплайна', (()=>{
 eq('З7 quat→mat4', (()=>{const R1=qToMat4(qFromAxisAngle([0,1,0],37*D)), R2=m4rotY(37*D);
   return R1.map((x,i)=>x-R2[i]);})(), new Array(16).fill(0), 1e-12);
 
+// ===== Глава 12: альтернативные решения =====
+// Г12.Ч1.З4 (вар. 2): матрица Хаусхолдера H = I − 2NNᵀ, её спектр и свойства
+const householder=N=>[0,1,2].map(c=>[0,1,2].map(r=>(r===c?1:0)-2*N[r]*N[c])); // H[c][r], симметрична
+const mv3=(H,v)=>[0,1,2].map(r=>H[0][r]*v[0]+H[1][r]*v[1]+H[2][r]*v[2]);
+eq('Г12.Ч1.З4 в2 H = diag(1,−1,1) и ответ З4', (()=>{const H=householder([0,1,0]);
+  return [...H.flat(), ...mv3(H, scale([1,-1,0],Math.SQRT1_2))];})(),
+  [1,0,0, 0,-1,0, 0,0,1, Math.SQRT1_2,Math.SQRT1_2,0], 1e-12);
+eq('Г12.Ч1.З4 в2 спектр {−1,+1,+1}, H²=I, det=−1', (()=>{const N=normalize([1,2,2]), H=householder(N);
+  const t1=normalize(cross(N,[0,0,1])), t2=cross(N,t1);
+  const H2=[0,1,2].map(c=>mv3(H,[H[c][0],H[c][1],H[c][2]]));   // H·H по столбцам
+  const det=H[0][0]*(H[1][1]*H[2][2]-H[2][1]*H[1][2])-H[1][0]*(H[0][1]*H[2][2]-H[2][1]*H[0][2])+H[2][0]*(H[0][1]*H[1][2]-H[1][1]*H[0][2]);
+  return [...add(mv3(H,N),N), ...sub(mv3(H,t1),t1), ...sub(mv3(H,t2),t2),
+          ...H2.flat().map((x,i)=>x-[1,0,0,0,1,0,0,0,1][i]), det, H[0][0]+H[1][1]+H[2][2]];})(),
+  [...new Array(18).fill(0), -1, 1], 1e-12);
+// Г12.Ч2.З4 (вар. 2): ‖(N₁+N₂)/2‖ = cos(Δθ/2)
+eq('Г12.Ч2.З4 в2 закон cos(Δθ/2)', [10,30,60,90,120].map(a=>{
+  const m=scale(add([1,0,0],[Math.cos(a*D),Math.sin(a*D),0]),0.5);
+  return length(m)-Math.cos(a*D/2);}), [0,0,0,0,0], 1e-12);
+// Г12.Ч2.З5 (вар. 2): протаскивание R·T(v) = T(Rv)·R и свёртка орбиты
+eq('Г12.Ч2.З5 в2 R·T(v) = T(Rv)·R', (()=>{const R=m4rotZ(37*D), v=[1,-2,3];
+  return m4mul(R,m4translate(v)).map((x,i)=>x-m4mul(m4translate(m4transformPoint(R,v)),R)[i]);})(),
+  new Array(16).fill(0), 1e-12);
+eq('Г12.Ч2.З5 в2 свёртка model = T(p)·R_y(Ω+ω)', (()=>{const W=0.7,w=2.3,t=1.234,Rr=5;
+  const L=m4mul(m4rotY(W*t), m4mul(m4translate([Rr,0,0]), m4rotY(w*t)));
+  const p=m4transformPoint(m4rotY(W*t),[Rr,0,0]);
+  const R=m4mul(m4translate(p), m4rotY((W+w)*t));
+  return [...L.map((x,i)=>x-R[i]), ...sub(p,[Rr*Math.cos(W*t),0,-Rr*Math.sin(W*t)])];})(),
+  new Array(19).fill(0), 1e-12);
+// Г12.Ч2.З6 (вар. 2): cross-базис билборда; расхождение со screen-aligned = atan(3/5)
+eq('Г12.Ч2.З6 в2 базис и расхождение билбордов', (()=>{const eye=[0,0,5], up=[0,1,0], pos=[3,0,0];
+  const f=normalize(sub(eye,pos)), r=normalize(cross(up,f)), u=cross(f,r);
+  const V=m4lookAt(eye,[0,0,0],up);
+  const screenAlignedZ=[V[2],V[6],V[10]];      // третий столбец транспонированного view-поворота
+  return [dot(r,u),dot(r,f),dot(u,f), length(r),length(u),length(f), ...sub(cross(r,u),f),
+          Math.acos(dot(f,screenAlignedZ))/D];})(), [0,0,0, 1,1,1, 0,0,0, Math.atan2(3,5)/D], 1e-9);
+eq('Г12.Ч2.З6 в2 цилиндрический билборд', (()=>{const eye=[0,0,5], up=[0,1,0], pos=[3,2,0];
+  const f=normalize([eye[0]-pos[0],0,eye[2]-pos[2]]), r=normalize(cross(up,f)), u=cross(f,r);
+  return [...sub(u,[0,1,0]), f[1]];})(), [0,0,0,0], 1e-15);
+// Г12.Ч2.З8 (вар. 2): численные нормали — порядок cross и точность разностей
+eq('Г12.Ч2.З8 в2 плоская сетка ⟹ нормаль вверх', normalize(cross([0,0,1],[1,0,0])), [0,1,0], 1e-15);
+eq('Г12.Ч2.З8 в2 центральная разность ≈ аналитика (ε=0.01)', (()=>{const h=x=>Math.sin(x), x=1, e=0.01;
+  const ctr=(h(x+e)-h(x-e))/(2*e);
+  return sub(normalize(cross([0,0,1],[1,ctr,0])), normalize([-Math.cos(x),1,0]));})(), [0,0,0], 1e-5);
+eq('Г12.Ч2.З8 в2 порядок точности: вперёд ~ε, центр ~ε²', (()=>{const h=x=>Math.sin(x), x=1, e=0.01, d=Math.cos(x);
+  const fwd=Math.abs((h(x+e)-h(x))/e-d), ctr=Math.abs((h(x+e)-h(x-e))/(2*e)-d);
+  return [fwd>1e-3&&fwd<1e-2?1:0, ctr<1e-5?1:0];})(), [1,1]);
+// Г12.Ч4.З2 (вар. 2): произведение по столбцам через m4xv
+eq('Г12.Ч4.З2 в2 m4mulCols = m4mul', (()=>{
+  const m4mulCols=(A,B)=>[0,1,2,3].flatMap(c=>m4xv(A,B.slice(c*4,c*4+4)));
+  const A=m4mul(m4rotY(37*D),m4translate([1,2,3])), B=m4mul(m4scale([2,3,0.5]),m4rotX(51*D));
+  return m4mulCols(A,B).map((x,i)=>x-m4mul(A,B)[i]);})(), new Array(16).fill(0), 1e-12);
+// Г12.Ч4.З4 (вар. 2): lookAt = invertRigid(матрица камеры)
+const m4invertRigid=M=>{const Rt=[0,1,2].map(c=>[0,1,2].map(r=>M[r*4+c]));   // Rt[c][r] = M[r][c]
+  const t=[M[12],M[13],M[14]];
+  const mt=[0,1,2].map(r=>-(Rt[0][r]*t[0]+Rt[1][r]*t[1]+Rt[2][r]*t[2]));
+  return [...Rt[0],0, ...Rt[1],0, ...Rt[2],0, ...mt,1];};
+eq('Г12.Ч4.З4 в2 invertRigid(C) = lookAt, C·C⁻¹ = I', (()=>{const eye=[3,4,5], target=[0,1,0], up=[0,1,0];
+  const f=normalize(sub(target,eye)), r=normalize(cross(f,up)), u=cross(r,f);
+  const C=[r[0],r[1],r[2],0, u[0],u[1],u[2],0, -f[0],-f[1],-f[2],0, eye[0],eye[1],eye[2],1];
+  return [...m4invertRigid(C).map((x,i)=>x-m4lookAt(eye,target,up)[i]),
+          ...m4mul(C,m4invertRigid(C)).map((x,i)=>x-m4ident()[i])];})(), new Array(32).fill(0), 1e-12);
+eq('Г12.Ч4.З4 в2 invertRigid для произвольной T·R (кости)', (()=>{
+  const B=m4mul(m4translate([1,-2,0.5]), m4mul(m4rotZ(63*D),m4rotX(17*D)));
+  return m4mul(B,m4invertRigid(B)).map((x,i)=>x-m4ident()[i]);})(), new Array(16).fill(0), 1e-12);
+// Г12.Ч4.З5 (вар. 2): расширенный quat-модуль — slerp сходится с nlerp на коротких дугах
+eq('Г12.Ч4.З5 в2 slerp≈nlerp: дуга 20° → <0.02°, дуга 5° → <0.001°', (()=>{
+  const ang=q=>2*Math.acos(Math.min(1,Math.abs(q[0])))/D;
+  return [20,5].map(a=>{const q1=[1,0,0,0], q2=qFromAxisAngle([0,1,0],a*D);
+    return Math.abs(ang(slerp(q1,q2,0.3))-ang(qNlerp(q1,q2,0.3)));})
+    .map((d,i)=>d < [0.02,0.001][i] ? 1 : 0);})(), [1,1]);
+// Г12.Ч4.З7 (вар. 2): дрейф при накоплении (float32) — нормализация останавливает рост ошибки
+eq('Г12.Ч4.З7 в2 дрейф матрицы растёт, нормализованный кватернион — нет', (()=>{
+  const f32=Math.fround, d=0.01;
+  const mul3f=(A,B)=>[0,1,2].map(i=>[0,1,2].map(j=>f32([0,1,2].reduce((s,k)=>f32(s+f32(A[i][k]*B[k][j])),0))));
+  const Rstep=[[Math.cos(d),0,Math.sin(d)],[0,1,0],[-Math.sin(d),0,Math.cos(d)]].map(r=>r.map(f32));
+  const qStep=qFromAxisAngle([0,1,0],d).map(f32);
+  let R=[[1,0,0],[0,1,0],[0,0,1]], qA=[1,0,0,0], qB=[1,0,0,0];
+  const orth=M=>{let m=0; for(let i=0;i<3;i++) for(let j=0;j<3;j++){
+    const v=[0,1,2].reduce((s,k)=>s+M[k][i]*M[k][j],0)-(i===j?1:0); m=Math.max(m,Math.abs(v));} return m;};
+  for(let n=0;n<50000;n++){ R=mul3f(R,Rstep); qA=qMul(qA,qStep).map(f32); qB=qNormalize(qMul(qB,qStep).map(f32)).map(f32); }
+  return [orth(R)>1e-4?1:0, Math.abs(qNorm(qA)-1)>1e-4?1:0, Math.abs(qNorm(qB)-1)<1e-6?1:0];})(), [1,1,1]);
+
 console.log(fails === 0 ? 'ALL CHECKS PASSED (главы 10–12 + капстоун)' : `${fails} FAILURES`);
 process.exit(fails === 0 ? 0 : 1);
