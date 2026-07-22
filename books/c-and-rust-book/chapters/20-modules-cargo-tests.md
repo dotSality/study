@@ -263,7 +263,7 @@ fn main() {
 ```
 
 ```
-error[E0603]: field `longest` of struct `Summary` is private
+error[E0616]: field `longest` of struct `Summary` is private
   --> fields_private.rs:15:34
    |
 15 |     println!("длиннейшее: {}", s.longest); // ⛔ поле приватное
