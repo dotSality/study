@@ -13,7 +13,7 @@
 | План (методология) | `books/self-education-book-create-plan.md` | утверждён |
 | Реестр источников (этап 1) | `books/c-and-rust-book/sources.md` | ✅ готов (проверен 2026-07-05) |
 | Программа курса (этап 2) | `books/c-and-rust-book/outline.md` | ✅ утверждена владельцем 2026-07-05 (v1.1, 26 глав) |
-| Главы самоучителя (этап 3) | `books/c-and-rust-book/chapters/NN-<slug>.md` | ⏳ наполняются по этой программе |
+| Главы самоучителя (этап 3) | `books/c-and-rust-book/chapters/NN-<slug>.md` | ✅ все 26 написаны (2026-07-20); ревизии обоих томов пройдены (2026-07-11 и 2026-07-22) |
 | Сборник решений (этап 5) | `books/c-and-rust-book/solutions/NN-<slug>.md` | ⏳ после этапа 4 |
 | Эта программа + трекер | `books/c-and-rust-book/C-and-Rust-learning.md` | живой документ: агент обновляет трекер (§7) после каждого захода |
 
