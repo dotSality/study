@@ -3,3 +3,7 @@ main.dSYM
 .idea
 node_modules
 variables.dSYM
+
+# Локальные копии закрытых изданий для сверки (книга о движке).
+# В репозиторий не попадают: авторское право + объём.
+books/three-based-custom-engine/extra-sources/

@@ -8,4 +8,6 @@
 - Node.js — verify-скрипты линалгебра-книги.
 - Rust на Windows (эталон для тома II, установлен 2026-07-11): **rustup, rustc/cargo 1.97.0 stable, host `x86_64-pc-windows-gnu`** (MSVC Build Tools на машине нет; gnu-тулчейн самодостаточен). `~/.cargo/bin` в PATH новых терминалов; в сессиях агента добавлять `$env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"`. rustc 1.75 (apt, WSL) — запасной контур.
 
-Детали и история настройки — журнал §10 в `books/c-and-rust-book/C-and-Rust-learning.md`.
+- **poppler 26.02.0** на Windows (scoop, установлен 2026-07-28): `pdftoppm` — обязателен для чтения PDF инструментом Read, без него PDF не открываются вовсе; `pdftotext`/`pdfinfo` — дешёвая навигация по книге (найти раздел, подтвердить издание по копирайту) до чтения страниц. Нужен для закрытых изданий книги о движке (`books/three-based-custom-engine/extra-sources/`, в git не попадает) и для `/root/n3220.pdf`.
+
+Детали и история настройки — журнал §10 в `books/c-and-rust-book/C-and-Rust-learning.md`; по книге о движке — раздел 10 в `custom-three-based-engine-book.md`.
