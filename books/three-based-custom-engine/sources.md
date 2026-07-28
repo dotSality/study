@@ -86,6 +86,8 @@
 | W6 | MDN Web Docs — WebGL API и смежные разделы | Mozilla и сообщество | Справочник по веб-платформе с устоявшейся репутацией | <https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API> ; <https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext> ; <https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas> | Быстрая сверка сигнатур и поддержки; наводка перед чтением спецификации | 🔶 дополнение (в паре с W1–W4) |
 | W7 | WebGL2 Fundamentals | G. Tavares | Образовательный ресурс с устоявшейся репутацией | <https://webgl2fundamentals.org/> ; исходники: <https://github.com/gfxfundamentals/webgl2-fundamentals> | Объяснение модели WebGL 2 «руками»: что именно делает рендерер под капотом | 🔶 дополнение ⚠️ не независим от J2 (раздел 1, граница 2) |
 | W8 | Chrome DevTools — документация (Performance, Rendering, Memory) | Google (Chrome for Developers) | Официальная документация инструмента | <https://developer.chrome.com/docs/devtools/performance> ; справочник: <https://developer.chrome.com/docs/devtools/performance/reference> ; монитор: <https://developer.chrome.com/docs/devtools/performance-monitor> | Профилирование в контрольной точке оптимизации; что именно меряется и почему абсолютные числа не входят в критерии приёмки (раздел 4.1 книги) | ✅ проверен (онлайн) |
+| W9 | Fetch Standard (Living Standard) | WHATWG | Официальная спецификация платформы | <https://fetch.spec.whatwg.org/> | Асинхронная загрузка ассетов (глава о конвейере ресурсов): `fetch()`, `Request`/`Response`, отмена загрузки через `AbortSignal` | ✅ проверен (онлайн 2026-07-28: «Living Standard — Last Updated 2 July 2026») |
+| W10 | Streams Standard (Living Standard) | WHATWG | Официальная спецификация платформы | <https://streams.spec.whatwg.org/> | Потоковое чтение крупных ассетов и стриминг: `ReadableStream`, `WritableStream`, `TransformStream`, байтовые потоки и BYOB-читатели | ✅ проверен (онлайн 2026-07-28: «Living Standard — Last Updated 17 July 2026») |
 
 ## 6. Форматы ассетов
 
@@ -104,6 +106,8 @@
 |---|---|---|---|---|---|---|
 | I1 | TypeScript Documentation / Handbook | Microsoft | Официальная документация языка | <https://www.typescriptlang.org/docs/> ; модули: <https://www.typescriptlang.org/docs/handbook/2/modules.html> ; файлы объявлений: <https://www.typescriptlang.org/docs/handbook/declaration-files/introduction.html> | Решение 6.1: типы как инструмент проектирования API движка, границы модулей, публичная поверхность, адаптер соответствия (раздел 4.3 книги) | ✅ проверен (онлайн) |
 | I2 | Playwright — официальная документация | Microsoft | Официальная документация инструмента | <https://playwright.dev/docs/intro> ; запуск браузера: <https://playwright.dev/docs/api/class-browsertype> | Слой 2 верификации: сценарии `harness/`, скриншоты, флаги запуска эталонного контура (зафиксированная версия 1.62.0) | ✅ проверен (онлайн) |
+| I3 | esbuild — официальная документация (API) | evanw / проект esbuild | Официальная документация инструмента | <https://esbuild.github.io/api/> ; разделы <https://esbuild.github.io/api/#serve> и <https://esbuild.github.io/api/#watch> | Сборка страницы стенда и поставка игры; режим слежения; обоснование, почему сервер стенда собственный: `serve` не выставляет произвольных заголовков (нужны COOP/COEP), документация для этого советует ставить перед ним прокси. Зафиксированная версия — 0.28.1 | ✅ проверен (онлайн 2026-07-28) |
+| I4 | Node.js Documentation — Test runner (`node:test`) | проект Node.js / OpenJS Foundation | Официальная документация платформы | <https://nodejs.org/docs/latest-v24.x/api/test.html> (ветка v24; на дату проверки страница описывает v24.18.0, рабочая версия окружения — 24.15.0) | Слой 3 верификации: тесты движка и сценарии слоя 2 гоняются одной командой `node --test`; правила обнаружения файлов тестов | ✅ проверен (онлайн 2026-07-28: «Stability: 2 — Stable», стабилен с v20.0.0) |
 
 ---
 
@@ -140,6 +144,7 @@
 
 ## 10. Открытые вопросы реестра
 
+- **Пополнение реестра 2026-07-28 (этап 2, по правилу 9).** Добавлены четыре источника, понадобившиеся программе курса: **W9** (Fetch) и **W10** (Streams) — под главу о конвейере ресурсов; **I3** (esbuild) и **I4** (`node:test`) — под инструментарий, который используется начиная с главы 1. Все четыре проверены онлайн в эту дату. Всего в реестре **36** источников.
 - ~~Доступ к закрытым изданиям.~~ **Закрыто 2026-07-28: все семь источников на руках** (T1, T3, T4, T5, E1 — оба тома, E4, E5; раздел 8). Пометок 📕 в реестре не осталось — каждая часть программы может опираться на любой источник из него. Остаётся действующим правило 6 раздела 9: T3 сверяется по 4-му изданию, E5 — по 1-му.
 - **Источники по вводу** (Pointer Events, Gamepad API, клавиатурные события) в реестр не включены: не проверялись в этом заходе. Добавляются по правилу 9 перед главой о подсистеме ввода.
 - **Источники по WebGPU и TSL** для обзорной главы конца книги не включены намеренно: решение 6.2 предписывает устанавливать фактический статус поиском **в момент написания** этой главы, а не сейчас.
