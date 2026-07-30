@@ -1,5 +1,7 @@
 # Conventions (книга C→Rust)
 
+> Эта память — только про книгу C→Rust. Правила asm-книги (`books/asm-book/`) живут в `asm-book-requirements.md` (FR-1…FR-7, NFR-1…NFR-5) и в `sources.md` §5; главные отличия — верификация каждой программы **на двух контурах** (L и M) вместо одного эталона, собственное пространство ID заданий и другие арбитры (psABI, AMD64 APM, POSIX, ECMA-48, GNU as). Указатель: `mem:asm-book-progress`.
+
 Нормативная база: `books/self-education-book-create-plan.md` (План) + §2–§6 в `books/c-and-rust-book/C-and-Rust-learning.md`. Жёсткие правила (§2), кратко:
 
 1. Никаких догадок — каждое утверждение подтверждено источниками из `sources.md`; неподтверждённое → «Открытые вопросы» в `outline.md`.
