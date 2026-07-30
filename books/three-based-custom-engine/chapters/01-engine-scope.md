@@ -16,7 +16,7 @@
 - получать первый кадр и объяснять, из чего складывается размер картинки;
 - проверять свой движок тремя способами — счётчиками, тестами без браузера и сценарием в браузере — и понимать, что доказывает каждый из них.
 
-**Версии, к которым привязана глава:** three 0.185.1, TypeScript 7.0.2, esbuild 0.28.1, Playwright 1.62.0, Node.js 24.15.0, Google Chrome 150.0.7871.187. Все числа и сообщения в тексте сняты прогоном на этом наборе.
+**Версии, к которым привязана глава:** three 0.185.1, TypeScript 7.0.2, esbuild 0.28.1, Playwright 1.62.0, Node.js 24.15.0, Google Chrome 151.0.7922.71. Все числа и сообщения в тексте сняты прогоном на этом наборе.
 
 ---
 
@@ -663,7 +663,7 @@ CSS-размер не изменился — на странице холст з
 **Почему:** число пикселей растёт как квадрат плотности; измерение в §1.2.4 даёт при плотности 2 ровно вчетверо больше пикселей, чем при 1, при неизменном размере холста на странице. Переход от 2 к 3 добавляет ещё в 2,25 раза работы фрагментному шейдеру ради разницы, которую глаз на таком экране почти не различает. Что пиксельная нагрузка управляется именно разрешением, — не наше наблюдение: снижение разрешения описано как стандартная проба на пиксельное узкое место (T1, 18.2.4).
 **Цена:** на экранах с плотностью 3 и выше картинка чуть мягче, чем могла бы быть.
 **Когда выиграл бы отвергнутый вариант:** статичная сцена или приложение, где важнее резкость текста и тонких линий, чем кадровое время; тогда потолок поднимают.
-**Проверка:** тест `плотность выше потолка обрезается` (`tests/viewport.test.mjs`) плюс замер таблицы §1.2.4, пример 2.
+**Проверка:** тест `pixel ratio above the cap is clamped` (`tests/viewport.test.mjs`) плюс замер таблицы §1.2.4, пример 2.
 
 #### Р1.2 — свой сервер стенда
 
@@ -787,7 +787,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { engine } from './adapter.mjs';
 
-test('плотность 1: буфер совпадает с CSS-размером', () => {
+test('pixel ratio 1: drawing buffer equals the CSS size', () => {
   const buffer = engine.drawingBuffer(640, 360, 1);
   assert.equal(buffer.width, 640);
   assert.equal(buffer.height, 360);
@@ -795,13 +795,13 @@ test('плотность 1: буфер совпадает с CSS-размеро�
   assert.equal(buffer.pixels, 640 * 360);
 });
 
-test('плотность 2: пикселей вчетверо больше при том же размере окна', () => {
+test('pixel ratio 2: four times the pixels in the same window', () => {
   const one = engine.drawingBuffer(640, 360, 1);
   const two = engine.drawingBuffer(640, 360, 2);
   assert.equal(two.pixels, one.pixels * 4);
 });
 
-test('плотность выше потолка обрезается', () => {
+test('pixel ratio above the cap is clamped', () => {
   const buffer = engine.drawingBuffer(640, 360, 3);
   assert.equal(buffer.pixelRatio, engine.maxPixelRatio);
   assert.equal(buffer.width, 640 * engine.maxPixelRatio);
@@ -812,11 +812,11 @@ test('плотность выше потолка обрезается', () => {
 
 ```
 $ node --test tests/viewport.test.mjs
-✔ плотность 1: буфер совпадает с CSS-размером (0.7324ms)
-✔ плотность 2: пикселей вчетверо больше при том же размере окна (0.1112ms)
-✔ плотность выше потолка обрезается (0.1059ms)
-✔ дробная плотность даёт целый размер буфера (0.1799ms)
-✔ потолок можно задать вызовом (0.1234ms)
+✔ pixel ratio 1: drawing buffer equals the CSS size (1.2579ms)
+✔ pixel ratio 2: four times the pixels in the same window (0.1569ms)
+✔ pixel ratio above the cap is clamped (0.1484ms)
+✔ fractional pixel ratio still yields an integer buffer (0.2614ms)
+✔ the cap can be raised by the caller (0.1769ms)
 ℹ tests 5
 ℹ pass 5
 ℹ fail 0
@@ -933,17 +933,17 @@ $ npm test
 > test
 > node --test
 
-✔ первый кадр: пустая сцена 640x360 (780.1999ms)
-✔ плотность 1: буфер совпадает с CSS-размером (1.1232ms)
-✔ плотность 2: пикселей вчетверо больше при том же размере окна (0.1613ms)
-✔ плотность выше потолка обрезается (0.1603ms)
-✔ дробная плотность даёт целый размер буфера (0.2633ms)
-✔ потолок можно задать вызовом (0.1844ms)
+✔ first frame: empty scene 640x360 (1075.9087ms)
+✔ pixel ratio 1: drawing buffer equals the CSS size (0.8226ms)
+✔ pixel ratio 2: four times the pixels in the same window (0.1683ms)
+✔ pixel ratio above the cap is clamped (0.1356ms)
+✔ fractional pixel ratio still yields an integer buffer (0.1346ms)
+✔ the cap can be raised by the caller (0.121ms)
 ℹ tests 6
 ℹ suites 0
 ℹ pass 6
 ℹ fail 0
-ℹ duration_ms 1086.1532
+ℹ duration_ms 1513.8968
 ```
 
 Порядок величин (на эталонной машине; сами числа от прогона к прогону плавают и потому ни в один критерий приёмки не входят — §1.3.1): около секунды на весь браузерный сценарий и доли миллисекунды на каждый тест без браузера. Это тот бюджет, при котором проверку запускают после каждой правки, а не раз в неделю.
