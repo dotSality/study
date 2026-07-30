@@ -1,6 +1,61 @@
 # the name by which the project can be referenced within Serena/when chatting with the LLM.
 project_name: "study"
 
+# list of languages for which language servers are started (LSP backend only); choose from:
+#   ada                 al                  angular             ansible             bash
+#   bsl                 clojure             cpp                 cpp_ccls            crystal
+#   csharp              csharp_omnisharp    cue                 dart                elixir
+#   elm                 erlang              fortran             fsharp              gdscript
+#   go                  groovy              haskell             haxe                hlsl
+#   html                java                json                julia               kotlin
+#   latex               lean4               lua                 luau                markdown
+#   matlab              msl                 nix                 ocaml               pascal
+#   perl                php                 php_phpactor        php_phpantom        powershell
+#   python              python_jedi         python_pyrefly      python_ty           r
+#   rego                ruby                ruby_solargraph     rust                scala
+#   scss                solidity            svelte              swift               systemverilog
+#   terraform           toml                typescript          typescript_vts      vue
+#   yaml                zig
+#   (This list may be outdated; generated with scripts/print_language_list.py;
+#   For the current list, see values of Language enum here:
+#   https://github.com/oraios/serena/blob/main/src/solidlsp/ls_config.py)
+# For some languages, there are alternative language servers, e.g. csharp_omnisharp, ruby_solargraph.)
+# Note:
+#   - For C, use cpp
+#   - For JavaScript, use typescript
+#   - For Angular projects, use angular (subsumes typescript+html; requires `npm install` in the project root)
+#   - For Svelte projects, use svelte (subsumes typescript/javascript for .svelte projects; requires npm)
+#   - For SCSS / Sass / plain CSS, use scss (some-sass-language-server handles all three)
+#   - For Free Pascal/Lazarus, use pascal
+# Special requirements:
+#   Some languages require additional setup/installations.
+#   See here for details: https://oraios.github.io/serena/01-about/020_programming-languages.html#language-servers
+# When using multiple languages, the first language server that supports a given file will be used for that file.
+# The first language is the default language and the respective language server will be used as a fallback.
+# Note that when using the JetBrains backend, language servers are not used and this list is correspondingly ignored.
+#
+# Состав списка для этой репы (изучается + применяется):
+#   markdown - основной контент: все три самоучителя (главы, решения, outline, sources); ~90 файлов, поэтому идёт первым
+#              (marksman, experimental: явно указывается, автодетектом не подхватывается)
+#   cpp      - C: том I книги C→Rust, примеры в c/beginner/ (для C используется именно cpp)
+#   rust     - Rust: том II той же книги (rustc/cargo 1.97.0 stable на Windows)
+#   typescript - JS/TS: verify-скрипты линалгебра-книги (books/linear-algebra/tests/*.js)
+#              и движок из книги о three.js (TypeScript 7.0.2, tsc --noEmit)
+#   hlsl     - GLSL-шейдеры: shaders/beginner/shaders/*.vert|*.frag, глава 12 линалгебры (shader-math);
+#              shader-language-server покрывает .glsl/.vert/.frag/.wgsl
+#   html     - страницы-стенды для шейдеров и будущего движка (experimental, нужен npm)
+#   bash     - скрипты сборки/прогона (run-c.sh) и рабочий контур Git Bash / WSL1
+# Не включены сознательно: json и yaml (в репе только конфиги .vscode/ и этот файл — как языки не изучаются),
+# powershell (команды набираются в сессиях, файлов-скриптов в репе нет). Добавить — одна строка каждый.
+languages:
+- markdown
+- cpp
+- rust
+- typescript
+- hlsl
+- html
+- bash
+
 # the encoding used by text files in the project
 # For a list of possible encodings, see https://docs.python.org/3.11/library/codecs.html#standard-encodings
 encoding: "utf-8"
@@ -16,7 +71,7 @@ activation_command:
 
 # maximum time in seconds to wait for activation_command to complete before killing it (default 180s).
 # must be a positive number.
-activation_command_timeout: 180.0
+activation_command_timeout: 180
 
 # line ending convention to use when writing source files.
 # Possible values: unset (use global setting), "lf", "crlf", or "native" (platform default)
@@ -130,38 +185,3 @@ read_only_memory_patterns: []
 # Extends the list from the global configuration, merging the two lists.
 # Example: ["_archive/.*", "_episodes/.*"]
 ignored_memory_patterns: []
-
-# list of language servers to start when using the LSP backend; choose from:
-#   ada                 al                  angular             ansible             bash
-#   bsl                 clojure             cpp                 cpp_ccls            crystal
-#   csharp              csharp_omnisharp    cue                 dart                elixir
-#   elm                 erlang              fortran             fsharp              gdscript
-#   go                  groovy              haskell             haxe                hlsl
-#   html                java                json                julia               kotlin
-#   latex               lean4               lua                 luau                markdown
-#   matlab              msl                 nix                 ocaml               pascal
-#   perl                php                 php_phpactor        php_phpantom        powershell
-#   python              python_jedi         python_pyrefly      python_ty           r
-#   rego                ruby                ruby_solargraph     rust                scala
-#   scss                solidity            svelte              swift               systemverilog
-#   terraform           toml                typescript          typescript_vts      vue
-#   yaml                zig
-#   (This list may be outdated; generated with scripts/print_language_list.py;
-#   For the current list, see values of Language enum here:
-#   https://github.com/oraios/serena/blob/main/src/solidlsp/ls_config.py)
-# For some languages, there are several alternative language servers, e.g. csharp_omnisharp, ruby_solargraph.)
-# Note:
-#   - For C, use cpp
-#   - For JavaScript, use typescript
-#   - For Angular projects, use angular (subsumes typescript+html; requires `npm install` in the project root)
-#   - For Svelte projects, use svelte (subsumes typescript/javascript for .svelte projects; requires npm)
-#   - For SCSS / Sass / plain CSS, use scss (some-sass-language-server handles all three)
-#   - For Free Pascal/Lazarus, use pascal
-# Special requirements:
-#   Some language servers require additional setup/installations.
-#   See here for details: https://oraios.github.io/serena/01-about/020_programming-languages.html#language-servers
-# When using multiple language servers, the first language server that supports a given file will be used for that file.
-# The first language server is the default language and the respective language server will be used as a fallback.
-# Note that when using the JetBrains backend, language servers are not used and this list is correspondingly ignored.
-language_servers:
-- cpp
