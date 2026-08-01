@@ -4,9 +4,10 @@ main.dSYM
 node_modules
 variables.dSYM
 
-# Локальные копии закрытых изданий для сверки (книга о движке).
+# Локальные копии закрытых изданий и объёмных спецификаций для сверки.
 # В репозиторий не попадают: авторское право + объём.
 books/three-based-custom-engine/extra-sources/
+books/asm-book/extra-sources/
 
 # Продукты сборки и отчёты стенда книги о движке: восстанавливаются
 # командами `npm run build` и `npm test` (решение 6.3 — коммитим исходники, не сборки).
@@ -14,3 +15,6 @@ books/three-based-custom-engine/code/web/
 books/three-based-custom-engine/code/chapters/*/web/bundle.js
 books/three-based-custom-engine/code/chapters/*/web/bundle.js.map
 books/three-based-custom-engine/code/chapters/*/harness/out/
+books/three-based-custom-engine/engine/*/web/bundle.js
+books/three-based-custom-engine/engine/*/web/bundle.js.map
+books/three-based-custom-engine/engine/*/harness/out/
