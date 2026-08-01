@@ -1,0 +1,21 @@
+{
+  "name": "engine-checkpoint-01",
+  "private": true,
+  "type": "module",
+  "description": "Снимок движка на контрольной точке 1: минимальное ядро (главы 1-5)",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "node harness/build.mjs",
+    "dev": "node harness/dev.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "@types/three": "0.185.1",
+    "esbuild": "0.28.1",
+    "playwright": "1.62.0",
+    "typescript": "7.0.2"
+  }
+}

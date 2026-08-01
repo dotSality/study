@@ -9,12 +9,14 @@ variables.dSYM
 books/three-based-custom-engine/extra-sources/
 books/asm-book/extra-sources/
 
+# Рабочее место захода книги о движке (решение владельца 2026-08-01):
+# код в истории не хранится, каталог очищается в конце захода. Хранятся только
+# снимки контрольных точек `engine/checkpoint-NN/` — там код имеет смысл.
+books/three-based-custom-engine/code/*
+!books/three-based-custom-engine/code/README.md
+
 # Продукты сборки и отчёты стенда книги о движке: восстанавливаются
 # командами `npm run build` и `npm test` (решение 6.3 — коммитим исходники, не сборки).
-books/three-based-custom-engine/code/web/
-books/three-based-custom-engine/code/chapters/*/web/bundle.js
-books/three-based-custom-engine/code/chapters/*/web/bundle.js.map
-books/three-based-custom-engine/code/chapters/*/harness/out/
 books/three-based-custom-engine/engine/*/web/bundle.js
 books/three-based-custom-engine/engine/*/web/bundle.js.map
 books/three-based-custom-engine/engine/*/harness/out/

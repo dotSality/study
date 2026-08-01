@@ -1,0 +1,24 @@
+{
+  "scene": "checkpoint-01-core",
+  "browser": "151.0.7922.71",
+  "three": "185",
+  "frames": 61,
+  "stepMs": 16.666666666666668,
+  "counters": {
+    "steps": 60,
+    "nodes": 35,
+    "traversals": 61,
+    "visited": 2135,
+    "alive": 7,
+    "calls": 7,
+    "triangles": 0,
+    "geometries": 1,
+    "programs": 1,
+    "centerPixel": [
+      16,
+      24,
+      32,
+      255
+    ]
+  }
+}
