@@ -19,6 +19,12 @@ books/asm-book/extra-sources/
 books/three-based-custom-engine/code/*
 !books/three-based-custom-engine/code/README.md
 
+# Сверочный скрипт глав — инструмент автора, а не артефакт книги (решение
+# владельца 2026-08-13): читателю он не достаётся и работать без рабочего
+# проекта всё равно не может. В harness/ остаётся только то, что артефактом
+# является: эталонные кадры и их паспорта.
+books/three-based-custom-engine/harness/verify-chapter.mjs
+
 # Продукты сборки и отчёты стенда книги о движке: восстанавливаются
 # командами `npm run build` и `npm test` (решение 6.3 — коммитим исходники, не сборки).
 books/three-based-custom-engine/engine/*/web/bundle.js
