@@ -57,6 +57,48 @@ glTF 2.0 — это формат, в котором сегодня приход�
 *Пример 1. Минимальный ассет целиком.* Руководство Khronos (G2) строит на треугольнике самый маленький осмысленный файл, и он же лежит в основе стенда этой главы. Смотреть в нём надо на две вещи: на цепочку индексов и на числа `byteOffset`.
 
 ```javascript
+export function triangleAsset() {
+  const binary = new Uint8Array(44);
+  const view = new DataView(binary.buffer);
+  for (let i = 0; i < 3; i += 1) view.setUint16(i * 2, i, true);
+  // Два байта добивки: дальше идут числа с плавающей точкой, а они обязаны
+  // начинаться на границе четырёх байт (G1).
+  const positions = [0, 0, 0, 1, 0, 0, 0, 1, 0];
+  for (let i = 0; i < positions.length; i += 1) view.setFloat32(8 + i * 4, positions[i], true);
+
+  const json = {
+    asset: { version: '2.0', generator: GENERATOR },
+    scene: 0,
+    scenes: [{ nodes: [0] }],
+    nodes: [{ name: 'triangle', mesh: 0 }],
+    meshes: [{ name: 'triangle', primitives: [{ attributes: { POSITION: 1 }, indices: 0, material: 0 }] }],
+    materials: [
+      {
+        name: 'brick',
+        pbrMetallicRoughness: {
+          baseColorFactor: [0.8, 0.16, 0.12, 1],
+          metallicFactor: 0,
+          roughnessFactor: 0.6,
+        },
+      },
+    ],
+    accessors: [
+      { bufferView: 0, componentType: 5123, count: 3, type: 'SCALAR', min: [0], max: [2] },
+      { bufferView: 1, componentType: 5126, count: 3, type: 'VEC3', min: [0, 0, 0], max: [1, 1, 0] },
+    ],
+    buffers: [{ byteLength: 44 }],
+    bufferViews: [
+      { buffer: 0, byteOffset: 0, byteLength: 6, target: 34963 },
+      { buffer: 0, byteOffset: 8, byteLength: 36, target: 34962 },
+    ],
+  };
+  return packGlb(json, binary);
+}
+```
+
+Смотреть здесь надо на два места. Первое — цепочка индексов: узел ссылается на сетку числом, примитив на материал числом, аксессор на представление числом. Второе — представления буфера в самом конце:
+
+```javascript
     buffers: [{ byteLength: 44 }],
     bufferViews: [
       { buffer: 0, byteOffset: 0, byteLength: 6, target: 34963 },
@@ -69,11 +111,45 @@ glTF 2.0 — это формат, в котором сегодня приход�
 *Пример 2. Ассеты стенда собираются скриптом, а не коммитятся.* Правило 5.9 книги требует от тестовых ассетов минимального размера и свободной лицензии; генерация закрывает оба требования разом и добавляет третье, более важное, — **детерминированность**. Числа в этой главе не зависят от версии чужого экспортёра.
 
 ```javascript
+const ASSET_DIR = 'web/assets';
+const GENERATOR = 'my-engine book (chapter 7), harness/make-gltf-assets.mjs v1.0';
+
+/** Добивка до границы четырёх байт: JSON добивается пробелами, данные нулями (G1). */
+export function pad(bytes, filler) {
+  const extra = (4 - (bytes.byteLength % 4)) % 4;
+  if (extra === 0) return bytes;
+  const out = new Uint8Array(bytes.byteLength + extra);
+  out.set(bytes, 0);
+  out.fill(filler, bytes.byteLength);
+  return out;
+}
+
 export function packGlb(json, binary) {
   const jsonChunk = pad(new TextEncoder().encode(JSON.stringify(json)), 0x20);
   const binChunk = pad(binary, 0x00);
   const total = 12 + 8 + jsonChunk.byteLength + 8 + binChunk.byteLength;
+
+  const out = new Uint8Array(total);
+  const view = new DataView(out.buffer);
+  view.setUint32(0, 0x46546c67, true); // 'glTF' с младшего байта
+  view.setUint32(4, 2, true);
+  view.setUint32(8, total, true);
+
+  view.setUint32(12, jsonChunk.byteLength, true);
+  view.setUint32(16, 0x4e4f534a, true); // 'JSON'
+  out.set(jsonChunk, 20);
+
+  const binAt = 20 + jsonChunk.byteLength;
+  view.setUint32(binAt, binChunk.byteLength, true);
+  view.setUint32(binAt + 4, 0x004e4942, true); // 'BIN\0'
+  out.set(binChunk, binAt + 8);
+  return out;
+}
 ```
+
+Это вся упаковка: заголовок из трёх чисел, кусок JSON, кусок двоичных данных. Разбор в §7.1.3 читает ровно то, что здесь написано, и других договорённостей между ними нет.
+
+Строка `GENERATOR` выглядит мелочью, но от её длины зависят все размеры файлов в этой главе: она попадает в JSON, а JSON на трёхвершинном ассете весит больше данных. Меняя её, пересчитайте числа §7.1.3 и §7.4.3 — они сняты с этой.
 
 *Пример 3. Чем это отличается от нашего учебного формата.* Материал главы 6 называл текстуру **именем** (`texture bricks.tex`), и разрешал это имя конвейер. glTF внутри одного файла называет всё **индексами**, а именами — только то, что лежит снаружи: адреса внешних буферов и картинок. Разница не косметическая: индекс проверяется при разборе одним сравнением с длиной массива, а имя требует поиска и может не найтись. Формат платит за это тем, что файл невозможно править руками, не пересчитав ссылки, — но его и не предполагается править руками.
 
@@ -150,7 +226,210 @@ export function packGlb(json, binary) {
 
 *Пример 3. Аксессор без представления.* Поле `bufferView` у аксессора необязательно, и его отсутствие — не ошибка: такой аксессор описывает нули. Формат пользуется этим для разрежённых данных и для заготовок, которые заполнит расширение. Наш читатель отвечает на это плотным массивом нулей нужной длины, и это единственный случай, когда он ничего не читает.
 
+*Пример 4. Чтение аксессора целиком.* Три фрагмента выше — части одной функции, и вот она вся. Половина её — проверки; собственно чтение занимает шесть строк в двойном цикле:
+
+```typescript
+export function readAccessor(gltf: any, binary: Uint8Array | null, index: number): AccessorView {
+  const accessor = gltf.accessors?.[index];
+  if (accessor === undefined) {
+    throw new SyntaxError(`gltf: there is no accessor ${index}`);
+  }
+  const components = TYPE_COMPONENTS[accessor.type];
+  if (components === undefined) {
+    throw new SyntaxError(`gltf: unknown accessor type "${accessor.type}"`);
+  }
+  const componentSize = COMPONENT_SIZE[accessor.componentType];
+  if (componentSize === undefined) {
+    throw new SyntaxError(`gltf: unknown component type ${accessor.componentType}`);
+  }
+
+  const count = accessor.count;
+  const elementSize = components * componentSize;
+  const values = new Float64Array(count * components);
+  const divisor = accessor.normalized === true ? NORMALIZE_DIVISOR[accessor.componentType] : undefined;
+
+  // Аксессор без представления — не ошибка: он описывает нули. Формат пользуется
+  // этим для разрежённых данных и для заготовок, которые заполнит расширение.
+  if (accessor.bufferView === undefined) {
+    return {
+      values,
+      count,
+      components,
+      componentType: accessor.componentType,
+      normalized: accessor.normalized === true,
+      byteLength: 0,
+    };
+  }
+
+  const bufferView = gltf.bufferViews?.[accessor.bufferView];
+  if (bufferView === undefined) {
+    throw new SyntaxError(`gltf: accessor ${index} points at a buffer view that is not there`);
+  }
+  if (binary === null) {
+    throw new SyntaxError(`gltf: accessor ${index} needs data, and the file has no BIN chunk`);
+  }
+
+  // Шаг задан у представления, а не у аксессора: одно представление может
+  // нести несколько чередующихся атрибутов. Не задан — элементы лежат вплотную.
+  const stride = bufferView.byteStride ?? elementSize;
+  const base = (bufferView.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
+  const byteLength = count === 0 ? 0 : (count - 1) * stride + elementSize;
+  if (base + byteLength > binary.byteLength) {
+    throw new SyntaxError(`gltf: accessor ${index} reads past the end of the buffer`);
+  }
+
+  const view = new DataView(binary.buffer, binary.byteOffset, binary.byteLength);
+  for (let i = 0; i < count; i += 1) {
+    for (let c = 0; c < components; c += 1) {
+      const raw = readOne(view, base + i * stride + c * componentSize, accessor.componentType);
+      // Нормализованное целое разворачивается в дробь по правилу спецификации;
+      // у знаковых типов отсечение снизу оставляет ровно -1 (G1).
+      values[i * components + c] = divisor === undefined ? raw : Math.max(raw / divisor, -1);
+    }
+  }
+
+  return {
+    values,
+    count,
+    components,
+    componentType: accessor.componentType,
+    normalized: accessor.normalized === true,
+    byteLength,
+  };
+}
+```
+
+Опирается она на три таблицы, один тип и один переключатель. Таблицы — это те самые перечни из начала параграфа, записанные кодом; больше в модуле ничего нет:
+
+```typescript
+/** Число компонентов в элементе. Семь типов, и других в формате нет (G1). */
+export const TYPE_COMPONENTS: Record<string, number> = {
+  SCALAR: 1,
+  VEC2: 2,
+  VEC3: 3,
+  VEC4: 4,
+  MAT2: 4,
+  MAT3: 9,
+  MAT4: 16,
+};
+
+/** Типы компонентов пришли прямо из OpenGL; знакового 32-разрядного нет (G1). */
+export const COMPONENT_SIZE: Record<number, number> = {
+  5120: 1, // signed byte
+  5121: 1, // unsigned byte
+  5122: 2, // signed short
+  5123: 2, // unsigned short
+  5125: 4, // unsigned int
+  5126: 4, // float
+};
+
+/** Делители нормализации. У знаковых типов это максимум, а не модуль минимума. */
+const NORMALIZE_DIVISOR: Record<number, number> = {
+  5120: 127,
+  5121: 255,
+  5122: 32767,
+  5123: 65535,
+};
+
+export interface AccessorView {
+  /** Значения подряд, элемент за элементом: ни шага, ни добивки (решение Р7.2). */
+  values: Float64Array;
+  count: number;
+  components: number;
+  componentType: number;
+  normalized: boolean;
+  /** Сколько байт занимает этот аксессор в файле — с шагом, а не без него. */
+  byteLength: number;
+}
+```
+
+Обратите внимание на третью: делитель у знакового короткого — 32767, а не 32768, и именно из-за этого в `readAccessor` появилось отсечение снизу. А переключатель — это единственное место, где читается сам байт:
+
+```typescript
+function readOne(view: DataView, at: number, componentType: number): number {
+  switch (componentType) {
+    case 5120:
+      return view.getInt8(at);
+    case 5121:
+      return view.getUint8(at);
+    case 5122:
+      return view.getInt16(at, true);
+    case 5123:
+      return view.getUint16(at, true);
+    case 5125:
+      return view.getUint32(at, true);
+    case 5126:
+      return view.getFloat32(at, true);
+    default:
+      throw new SyntaxError(`gltf: unknown component type ${componentType}`);
+  }
+}
+```
+
+Второй параметр `true` у каждого чтения — это порядок байт: glTF хранит числа младшим байтом вперёд, и `DataView` об этом надо просить явно, потому что по умолчанию он читает наоборот.
+
 **Связь с практикой.** Наш `readAccessor` возвращает не типизированный массив, а плотный `Float64Array` со значениями подряд. Для подачи на GPU это было бы расточительством, но глава разбирает формат, а не готовит буфер: в проверке должно быть видно, **что записано в файле**, без оговорок о шаге и о том, что между элементами лежит добивка. Решение и его цена — Р7.2.
+
+Обратная задача — не прочитать смещения, а расставить их — решается тем же знанием, и в генераторе ассетов она вынесена в отдельный класс. Считать смещения руками нельзя: одно неверное число тихо сдвигает всё, что лежит дальше, и ошибка проявится как «странный аксессор» где-то в середине файла.
+
+```javascript
+export class BufferBuilder {
+  constructor() {
+    this.chunks = [];
+    this.length = 0;
+    this.bufferViews = [];
+    this.accessors = [];
+  }
+
+  /** Дописать данные в буфер, выровняв их начало на четыре байта. */
+  append(data) {
+    const bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    const padding = (4 - (this.length % 4)) % 4;
+    if (padding > 0) {
+      this.chunks.push(new Uint8Array(padding));
+      this.length += padding;
+    }
+    const at = this.length;
+    this.chunks.push(bytes);
+    this.length += bytes.byteLength;
+    return at;
+  }
+
+  /** Завести представление на уже дописанных данных. Возвращает его индекс. */
+  view(data, target, byteStride) {
+    const byteOffset = this.append(data);
+    const bufferView = { buffer: 0, byteOffset, byteLength: data.byteLength };
+    if (byteStride !== undefined) bufferView.byteStride = byteStride;
+    if (target !== undefined) bufferView.target = target;
+    this.bufferViews.push(bufferView);
+    return this.bufferViews.length - 1;
+  }
+
+  /** Завести аксессор поверх представления. Возвращает его индекс. */
+  accessor(bufferView, componentType, type, count, extra = {}) {
+    this.accessors.push({ bufferView, componentType, count, type, ...extra });
+    return this.accessors.length - 1;
+  }
+
+  /** Собрать буфер целиком: длина уже выровнена, потому что выровнен каждый кусок. */
+  build() {
+    const binary = new Uint8Array(this.length);
+    let at = 0;
+    for (const chunk of this.chunks) {
+      binary.set(chunk, at);
+      at += chunk.byteLength;
+    }
+    return {
+      binary,
+      buffers: [{ byteLength: binary.byteLength }],
+      bufferViews: this.bufferViews,
+      accessors: this.accessors,
+    };
+  }
+}
+```
+
+Выравнивание здесь в одном месте — в `append`, — и потому его нельзя забыть ни у одного атрибута. Треугольник из §7.1.1 собран руками нарочно, чтобы числа в тексте совпадали с числами в файле буква в букву; всё, что сложнее трёх вершин, собирается этим классом.
 
 **Типичные ошибки и подводные камни.**
 
@@ -218,7 +497,23 @@ export function packGlb(json, binary) {
     }
 ```
 
-`subarray` не выделяет памяти вовсе — он заводит второй взгляд на тот же буфер. Закреплено проверкой тождества:
+`subarray` не выделяет памяти вовсе — он заводит второй взгляд на тот же буфер. Ассеты для проверок собираются генератором из §7.1.1 один раз на весь файл — `TRIANGLE` здесь и дальше по главе именно оттуда:
+
+```javascript
+import {
+  pad,
+  packGlb,
+  quantizedTriangleAsset,
+  riggedAsset,
+  triangleAsset,
+} from '../harness/make-gltf-assets.mjs';
+
+const TRIANGLE = triangleAsset();
+const QUANTIZED = quantizedTriangleAsset();
+const RIGGED = riggedAsset();
+```
+
+Тождество буфера закреплено проверкой:
 
 ```javascript
   // Двоичный кусок — вид на те же байты, а не копия: копировать мегабайты незачем.
@@ -234,6 +529,96 @@ export function packGlb(json, binary) {
 ```
 
 Обратите внимание на добивку в самом переходе: следующий кусок начинается на границе четырёх байт, и если её не учесть, разбор поедет по мусору начиная со второго куска.
+
+*Пример 4. Весь разбор контейнера.* Три фрагмента выше стоят в одной функции, и вот она целиком — пятьдесят строк, из которых больше половины проверяют файл, а не читают его:
+
+```typescript
+export function readGlb(bytes: Uint8Array): GlbFile {
+  if (bytes.byteLength < GLB_HEADER_LENGTH) {
+    throw new SyntaxError(`glb: file is shorter than the header (${bytes.byteLength} bytes)`);
+  }
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const magic = view.getUint32(0, true);
+  if (magic !== GLB_MAGIC) {
+    throw new SyntaxError(`glb: expected magic "glTF", got "${fourCC(magic)}"`);
+  }
+  const version = view.getUint32(4, true);
+  if (version !== GLB_VERSION) {
+    throw new SyntaxError(`glb: version ${GLB_VERSION} expected, file declares ${version}`);
+  }
+  // Единственная встроенная в формат защита от обрыва при передаче: длина
+  // объявлена в самом файле и обязана совпасть с фактической.
+  const declared = view.getUint32(8, true);
+  if (declared !== bytes.byteLength) {
+    throw new SyntaxError(
+      `glb: declared length ${declared} does not match the file length ${bytes.byteLength}`,
+    );
+  }
+
+  let json: any = null;
+  let binary: Uint8Array | null = null;
+  let at = GLB_HEADER_LENGTH;
+
+  while (at + 8 <= bytes.byteLength) {
+    const length = view.getUint32(at, true);
+    const type = view.getUint32(at + 4, true);
+    const start = at + 8;
+    if (start + length > bytes.byteLength) {
+      throw new SyntaxError(`glb: chunk at ${at} runs past the end of the file`);
+    }
+    if (at === GLB_HEADER_LENGTH && type !== GLB_CHUNK_JSON) {
+      throw new SyntaxError(`glb: the first chunk must be JSON, got "${fourCC(type)}"`);
+    }
+
+    if (type === GLB_CHUNK_JSON) {
+      if (json !== null) throw new SyntaxError('glb: more than one JSON chunk');
+      json = JSON.parse(decoder.decode(bytes.subarray(start, start + length)));
+    } else if (type === GLB_CHUNK_BIN) {
+      if (binary !== null) throw new SyntaxError('glb: more than one BIN chunk');
+      binary = bytes.subarray(start, start + length);
+    }
+    // Неизвестные куски пропускаются молча — так велит формат: это его способ
+    // расширяться, не ломая старые загрузчики.
+    at = start + length + ((4 - (length % 4)) % 4);
+  }
+
+  return { json, binary };
+}
+```
+
+Всё, на что она опирается, — пять чисел и тип возвращаемого значения:
+
+```typescript
+/** Слово `glTF`, прочитанное с младшего байта, — так его читает и three (J3). */
+export const GLB_MAGIC = 0x46546c67;
+export const GLB_VERSION = 2;
+/** Заголовок: метка, версия, полная длина файла. */
+export const GLB_HEADER_LENGTH = 12;
+export const GLB_CHUNK_JSON = 0x4e4f534a;
+export const GLB_CHUNK_BIN = 0x004e4942;
+
+export interface GlbFile {
+  /** Разобранный кусок JSON: сам ассет glTF. */
+  json: any;
+  /** Двоичный кусок или `null`, если его в файле нет. Это вид, а не копия. */
+  binary: Uint8Array | null;
+}
+
+const decoder = new TextDecoder('utf-8', { fatal: true });
+
+/** Число обратно в четыре буквы: человеку полезнее увидеть `ZIP`, чем 0x04034b50. */
+function fourCC(value: number): string {
+  return String.fromCharCode(
+    value & 0xff,
+    (value >>> 8) & 0xff,
+    (value >>> 16) & 0xff,
+    (value >>> 24) & 0xff,
+  ).replace(/[^\x20-\x7e]/g, '.');
+}
+```
+
+Замена непечатаемых знаков точкой в `fourCC` — не украшение: метка чужого файла запросто окажется двоичным мусором, и сообщение об ошибке не должно этот мусор выводить в консоль. Условия «кусок JSON один» и «кусок BIN один» проверяются, а вот условие «кусок JSON вообще есть» — нет, и это задание Г7.Ч1.З7.
 
 **Связь с практикой.** Числа стенда этой главы: `triangle.glb` — 836 байт целиком, из них кусок JSON 764 байта, двоичный кусок 44. То есть на трёхвершинном треугольнике **описание в семнадцать раз тяжелее данных**. Это не изъян формата, а его масштаб: JSON — постоянные накладные расходы, и заметны они только на игрушечных ассетах. К этому наблюдению мы вернёмся в части 7.4, где оно даст неожиданный результат.
 
@@ -292,6 +677,38 @@ export function packGlb(json, binary) {
 
 **Связь с практикой.** В движке из этого следует ровно одно правило, записанное в загрузчике: узлы ассета переносятся в граф сцены **без преобразования базиса**, а всё, что нужно повернуть или отмасштабировать, задаётся автором ассета в его собственных полях `translation`, `rotation` и `scale`. Место, где движок вправе вмешаться, одно — часть 7.4, где масштаб узла несёт обратное преобразование квантованных позиций.
 
+Узел движка повторяет поля формата один в один, и отсутствующие поля остаются отсутствующими:
+
+```typescript
+export interface GltfNode {
+  name: string;
+  mesh: number;
+  skin: number;
+  children: number[];
+  translation: number[] | null;
+  rotation: number[] | null;
+  scale: number[] | null;
+}
+```
+
+Правило это выглядит как отсутствие кода, и в этом всё дело — перенос узла целиком:
+
+```typescript
+  const nodes = asArray(gltf.nodes).map((node: any, at: number) => ({
+    name: String(node.name ?? `node${at}`),
+    mesh: node.mesh ?? -1,
+    skin: node.skin ?? -1,
+    children: asArray(node.children).map(Number),
+    // Базис не меняется: правая система и +Y вверх совпадают у формата, у three
+    // и у движка, поэтому узлы переносятся как есть (G1, §7.1.4).
+    translation: node.translation ?? null,
+    rotation: node.rotation ?? null,
+    scale: node.scale ?? null,
+  }));
+```
+
+Ни одной матрицы, ни одного знака минус. Отсутствующие поля становятся `-1` и `null`, а не подставляются умолчаниями: узел без преобразования — это узел без преобразования, и решать, что это значит, будет граф сцены главы 3, а не загрузчик формата.
+
 **Типичные ошибки и подводные камни.**
 
 - Разворачивать модель на 180° «чтобы смотрела на камеру». Она уже смотрит; разворот означает, что ошибка в положении камеры.
@@ -333,11 +750,11 @@ export function packGlb(json, binary) {
 
 **Г7.Ч1.З6.** По G1 объясните, зачем формату три уровня косвенности, и приведите пример данных, которые невозможно выразить, если убрать средний уровень — представление буфера.
 
-**Г7.Ч1.З7.** *(прикладное)* Добавьте `readGlb` проверку, что кусок JSON не только идёт первым, но и присутствует; проверьте её тестом на файле, состоящем из одного заголовка. Объясните в комментарии, почему отсутствие двоичного куска ошибкой не является.
+**Г7.Ч1.З7.** *(прикладное)* Возьмите `readGlb` из §7.1.3 (пример 4 показывает её целиком) и добавьте проверку, что кусок JSON не только идёт первым, но и присутствует: сейчас функция возвращает `json: null` для файла, состоящего из одного заголовка. Покройте её тестом на таком файле и объясните в комментарии, почему отсутствие **двоичного** куска ошибкой не является.
 
-**Г7.Ч1.З8.** *(прикладное)* Научите `readAccessor` читать матричные типы (`MAT2`, `MAT3`, `MAT4`) с учётом того, что спецификация требует выравнивания **каждого столбца** матрицы на четыре байта. Покройте тестом `MAT2` из беззнаковых байтов и объясните, сколько байт занимает один такой элемент.
+**Г7.Ч1.З8.** *(прикладное)* Научите `readAccessor` (§7.1.2, пример 4) читать матричные типы (`MAT2`, `MAT3`, `MAT4`) с учётом того, что спецификация требует выравнивания **каждого столбца** матрицы на четыре байта. Сейчас функция считает элемент сплошным куском из `components × componentSize` байт — найдите в ней место, где это допущение записано, и скажите, для каких из трёх типов оно верно. Покройте тестом `MAT2` из беззнаковых байтов и объясните, сколько байт занимает один такой элемент.
 
-**Г7.Ч1.З9.** *(прикладное)* Соберите скриптом ассет, в котором позиция, нормаль и развёртка чередуются в одном представлении, и напишите тест, доказывающий, что все три аксессора читаются верно. В комментарии укажите, чем такая раскладка выгоднее трёх раздельных представлений.
+**Г7.Ч1.З9.** *(прикладное)* Соберите скриптом ассет, в котором позиция, нормаль и развёртка чередуются в одном представлении. Пользуйтесь `BufferBuilder` и `packGlb` из §7.1.2 и §7.1.1: `view(data, target, byteStride)` принимает шаг, а `accessor` — смещение внутри элемента через `extra`. Напишите тест, доказывающий, что все три аксессора читаются верно, и укажите в комментарии, чем такая раскладка выгоднее трёх раздельных представлений.
 
 **Источники части 7.1:** G1 (структура ассета и адресация индексами; буферы, представления, аксессоры; типы компонентов и элементов; правила выравнивания и нормализации; контейнер GLB; система координат и единицы); G2 (минимальный файл: треугольник, его буфер, представления и аксессоры); J3, `examples/jsm/loaders/GLTFLoader.js` (константы контейнера GLB, отсутствие преобразований при импорте в 0.185.1); T1, 16.6 (зачем вершинные данные упаковывают и чем за это платят); T5, 1.5.2 и 2.1 (левая и правая системы, координатные пространства); E1-I, 7.2.1.4 (место формата в конвейере подготовки ассетов); E2, «Flyweight» (разделяемая часть данных); прогоны 2026-08-11.
 
@@ -570,6 +987,85 @@ export interface GltfMaterial {
 
 **Связь с практикой.** Граница между описанием и объектом рендерера окупится в главе 10, где у одного описания появится несколько воплощений: материал для основного прохода, для карты теней и для отбора. Если бы загрузчик сразу создавал объект рендерера, все три пришлось бы выводить из него обратно.
 
+Всё, что разбор отдаёт наружу, перечислено в одном типе, и он же — оглавление этой главы:
+
+```typescript
+export interface GltfAsset {
+  used: string[];
+  required: string[];
+  scene: number;
+  nodes: GltfNode[];
+  meshes: GltfMesh[];
+  materials: GltfMaterial[];
+  skins: GltfSkin[];
+  animations: GltfClip[];
+  /** Объём вершинных данных в файле: по нему конвейер считает бюджет. */
+  dataBytes: number;
+}
+```
+
+Собирает его одна функция. Её середина разобрана по частям — материалы здесь же выше, узлы в §7.1.4, сетки в §7.3.2, скины в §7.3.1, анимации в §7.3.4, — а начало и конец выглядят так:
+
+```typescript
+function asArray(value: unknown): any[] {
+  return Array.isArray(value) ? value : [];
+}
+
+export function parseGltf(bytes: Uint8Array): GltfAsset {
+  const file = readGlb(bytes);
+  const gltf = file.json;
+  if (gltf === null || typeof gltf !== 'object') {
+    throw new SyntaxError('gltf: the JSON chunk is missing');
+  }
+  if (gltf.asset?.version !== '2.0') {
+    throw new SyntaxError(`gltf: version 2.0 expected, file declares ${gltf.asset?.version}`);
+  }
+
+  const used: string[] = asArray(gltf.extensionsUsed).map(String);
+  const required: string[] = asArray(gltf.extensionsRequired).map(String);
+```
+
+```typescript
+  return {
+    used,
+    required,
+    scene: gltf.scene ?? 0,
+    nodes,
+    meshes,
+    materials,
+    skins,
+    animations,
+    dataBytes,
+  };
+}
+```
+
+`asArray` здесь не украшение: в glTF почти каждый массив верхнего уровня необязателен, и ассет без анимаций просто не содержит поля `animations`. Обходить это проверкой на каждом обращении — значит написать одну и ту же проверку девять раз; вместо этого отсутствующий массив становится пустым один раз, и дальше весь разбор работает с массивами, а не с «может быть, массивами».
+
+Настоящий формат подключается к конвейеру главы 6 тем же способом, что учебный, — контрактом из пяти методов, и ядро от этого не меняется ни на строку:
+
+```typescript
+export const gltfLoader: ResourceLoader<GltfAsset> = {
+  name: 'gltf',
+  extensions: ['glb'],
+  parse(context) {
+    return parseGltf(context.bytes);
+  },
+  // Бюджет считается по вершинным данным, а не по длине файла: описание в JSON
+  // в память не едет, а на учебном ассете оно в семнадцать раз тяжелее данных.
+  size(value) {
+    return value.dataBytes;
+  },
+  dispose(value) {
+    value.meshes.length = 0;
+    value.nodes.length = 0;
+    value.animations.length = 0;
+  },
+};
+```
+
+Метода `finalize` здесь нет: внешних ссылок у ассета этой главы не бывает — всё, что ему нужно, лежит в том же файле. Он появится в главе 8, когда у материала окажутся текстуры, и это будет ровно тот же механизм, каким материал главы 6 подтягивал `bricks.tex`.
+
 **Типичные ошибки и подводные камни.**
 
 - Создавать объект рендерера в загрузчике формата. Подсистема ассетов немедленно перестаёт проверяться без графического контекста.
@@ -659,16 +1155,34 @@ export interface GltfMaterial {
   assert.equal(skin.inverseBind.length, 2 * 16, 'one 4x4 matrix per joint');
 ```
 
-*Пример 2. Матрицы читаются одним аксессором.* В файле это один аксессор типа `MAT4`, и в коде — одна строка, в которой важен комментарий, а не вызов:
+*Пример 2. Весь разбор скина.* Скин движка — три поля, и ни одно из них не является матрицей позы: поза считается в главе 15, здесь только данные файла.
 
 ```typescript
+export interface GltfSkin {
+  /** Индексы узлов-суставов. Порядок массива и есть нумерация суставов. */
+  joints: number[];
+  /** Общий корень иерархии; суставом быть не обязан. */
+  skeleton: number;
+  inverseBind: Float64Array | null;
+}
+```
+
+Матрицы читаются одним аксессором типа `MAT4`, и вместе с двумя полями индексов это и есть весь разбор:
+
+```typescript
+  const skins = asArray(gltf.skins).map((skin: any) => ({
+    joints: asArray(skin.joints).map(Number),
+    skeleton: skin.skeleton ?? -1,
     // Обратная матрица привязки постоянна на всю игру, поэтому её и кладут в
     // файл: считать её в рантайме незачем (E1-II, 13.5.2).
     inverseBind:
       skin.inverseBindMatrices === undefined
         ? null
         : readAccessor(gltf, file.binary, skin.inverseBindMatrices).values,
+  }));
 ```
+
+Умолчание спецификации «нет матриц — значит единичные» здесь выражено как `null`: подставлять две сотни единиц и нулей на каждый сустав загрузчику незачем, а тот, кто будет считать позу, отличит `null` от массива одним сравнением.
 
 *Пример 3. Содержимое матриц проверено числом.* У корневого сустава матрица единичная, у второго — перенос на две единицы вниз, обращающий его положение в позе привязки:
 
@@ -679,6 +1193,107 @@ export interface GltfMaterial {
 ```
 
 Индекс 13 — это тринадцатый элемент второй матрицы, то есть перенос по оси Y при раскладке по столбцам; заодно проверяется и сама раскладка.
+
+*Пример 4. Ассет, на котором сняты все числа части 7.3.* Оснащённый квадрат собирается тем же `BufferBuilder` из §7.1.2. Считать смещения руками здесь уже нельзя — восемь аксессоров: четыре вершинных атрибута (позиции, индексы суставов, веса, морф-цель), индексы треугольников, обратные матрицы привязки, отметки времени и повороты, — и в этом весь смысл сборщика:
+
+```javascript
+/**
+ * Оснащённый квадрат: скелет из двух суставов, одна морф-цель и клип на секунду.
+ * Здесь смещения считать руками уже нельзя — их считает `BufferBuilder`.
+ */
+export function riggedAsset() {
+  const builder = new BufferBuilder();
+
+  const indices = new Uint16Array([0, 1, 2, 2, 1, 3]);
+  const positions = new Float32Array([-1, 0, 0, 1, 0, 0, -1, 2, 0, 1, 2, 0]);
+  // Цель раздвигает верхние вершины и не трогает нижние: у них нули, и это
+  // прямое доказательство того, что цель хранит смещения, а не позиции.
+  const target = new Float32Array([0, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0]);
+  // Индексы суставов — беззнаковый байт: суставов два, и больше 255 не будет.
+  const joints = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0]);
+  const weights = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 0.5, 0.5, 0, 0, 0.5, 0.5, 0, 0]);
+  // Единичная матрица у корня и перенос на две единицы вниз у второго сустава:
+  // обратная матрица привязки обращает положение сустава в позе привязки.
+  const inverseBind = new Float32Array([
+    1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -2, 0, 1,
+  ]);
+  const times = new Float32Array([0, 0.5, 1]);
+  // Кватернион в порядке x, y, z, w: скалярная часть последняя (G1).
+  const rotations = new Float32Array([0, 0, 0, 1, 0, 0, 0.7071, 0.7071, 0, 0, 0, 1]);
+
+  const indicesAt = builder.accessor(
+    builder.view(indices, 34963),
+    5123,
+    'SCALAR',
+    6,
+    { min: [0], max: [3] },
+  );
+  const positionsAt = builder.accessor(
+    builder.view(positions, 34962),
+    5126,
+    'VEC3',
+    4,
+    { min: [-1, 0, 0], max: [1, 2, 0] },
+  );
+  const targetAt = builder.accessor(builder.view(target, 34962), 5126, 'VEC3', 4, {
+    min: [-1, 0, 0],
+    max: [1, 0, 0],
+  });
+  const jointsAt = builder.accessor(builder.view(joints, 34962), 5121, 'VEC4', 4);
+  const weightsAt = builder.accessor(builder.view(weights, 34962), 5126, 'VEC4', 4);
+  const inverseBindAt = builder.accessor(builder.view(inverseBind), 5126, 'MAT4', 2);
+  const timesAt = builder.accessor(builder.view(times), 5126, 'SCALAR', 3, { min: [0], max: [1] });
+  const rotationsAt = builder.accessor(builder.view(rotations), 5126, 'VEC4', 3);
+
+  const packed = builder.build();
+  const json = {
+    asset: { version: '2.0', generator: GENERATOR },
+    scene: 0,
+    scenes: [{ nodes: [0, 1] }],
+    nodes: [
+      { name: 'body', mesh: 0, skin: 0 },
+      { name: 'root', children: [2] },
+      { name: 'tip', translation: [0, 2, 0] },
+    ],
+    meshes: [
+      {
+        name: 'flag',
+        weights: [0],
+        primitives: [
+          {
+            attributes: {
+              POSITION: positionsAt,
+              JOINTS_0: jointsAt,
+              WEIGHTS_0: weightsAt,
+            },
+            indices: indicesAt,
+            material: 0,
+            targets: [{ POSITION: targetAt }],
+          },
+        ],
+        extras: { targetNames: ['spread'] },
+      },
+    ],
+    materials: [{ name: 'cloth' }],
+    skins: [{ joints: [1, 2], skeleton: 1, inverseBindMatrices: inverseBindAt }],
+    animations: [
+      {
+        name: 'wave',
+        samplers: [{ input: timesAt, output: rotationsAt, interpolation: 'LINEAR' }],
+        channels: [{ sampler: 0, target: { node: 2, path: 'rotation' } }],
+      },
+    ],
+    accessors: packed.accessors,
+    buffers: packed.buffers,
+    bufferViews: packed.bufferViews,
+  };
+  return packGlb(json, packed.binary);
+}
+
+```
+
+Скелет здесь — два узла, `root` и `tip`, и суставами их делает единственное упоминание в `skins[0].joints`. Меш привязан к обоим, морф-цель одна, клип один и длится секунду. Все числа §7.3.1–§7.3.4 сняты с этого ассета, и любое из них воспроизводится запуском генератора.
 
 **Связь с практикой.** Скелет в glTF — это обычные узлы сцены, а значит их можно двигать и без анимации: скин лишь говорит, какие из узлов считать суставами. Для движка это удобно: граф сцены из главы 3 подходит без изменений, и отдельного «дерева костей» заводить не нужно.
 
@@ -737,6 +1352,85 @@ export interface GltfMaterial {
 *Пример 3. Тип индексов выбирается по числу суставов.* В нашем ассете `JOINTS_0` объявлен беззнаковым байтом: суставов два, и больше 255 не будет. У настоящего персонажа их сотня, и тогда тип становится беззнаковым коротким. Это тот же приём экономии, о котором пишет T1, 16.6 применительно к индексам треугольников: тип подбирается под фактический диапазон.
 
 **Связь с практикой.** Наш загрузчик читает `JOINTS_0` и `WEIGHTS_0`, но **не применяет** их: сложение матриц палитры — работа проигрывателя, то есть главы 15. Здесь важно, что данные прочитаны верно и что их можно проверить ассертом, ни разу ничего не нарисовав.
+
+Примитив движка и есть тот набор, который уезжает на GPU одной отрисовкой; сетка — список примитивов и веса морф-целей по умолчанию:
+
+```typescript
+export interface GltfPrimitive {
+  /** Индекс материала или -1: имени у материала может не быть, индекс есть всегда. */
+  material: number;
+  vertexCount: number;
+  positions: Float64Array;
+  indices: Float64Array | null;
+  /** Индексы суставов, по четыре на вершину, или `null` без скиннинга. */
+  joints: Float64Array | null;
+  weights: Float64Array | null;
+  /** Морф-цели: смещения от базовых позиций, а не позиции (G1). */
+  targets: Float64Array[];
+  /** Сколько байт занимают вершинные данные этого примитива в файле. */
+  dataBytes: number;
+}
+
+export interface GltfMesh {
+  name: string;
+  /** Веса морф-целей по умолчанию. */
+  weights: number[];
+  primitives: GltfPrimitive[];
+}
+```
+
+Вот разбор сетки целиком — то место, где сходятся позиции, индексы, привязка и морф-цели. Счётчик вершинных байтов заводится перед разбором, потому что складывается по всем примитивам всех сеток сразу:
+
+```typescript
+  let dataBytes = 0;
+
+  const meshes = asArray(gltf.meshes).map((mesh: any, at: number) => ({
+    name: String(mesh.name ?? `mesh${at}`),
+    weights: asArray(mesh.weights).map(Number),
+    primitives: asArray(mesh.primitives).map((primitive: any) => {
+      const attributes = primitive.attributes ?? {};
+      if (attributes.POSITION === undefined) {
+        throw new SyntaxError(`gltf: mesh "${mesh.name}" has a primitive without POSITION`);
+      }
+      const positions = readAccessor(gltf, file.binary, attributes.POSITION);
+      const indices =
+        primitive.indices === undefined ? null : readAccessor(gltf, file.binary, primitive.indices);
+      const joints =
+        attributes.JOINTS_0 === undefined
+          ? null
+          : readAccessor(gltf, file.binary, attributes.JOINTS_0);
+      const weights =
+        attributes.WEIGHTS_0 === undefined
+          ? null
+          : readAccessor(gltf, file.binary, attributes.WEIGHTS_0);
+      // Цели читаются как есть: это смещения от базовых позиций, и складывать
+      // их с базой - работа проигрывателя анимации, то есть главы 15.
+      const targets = asArray(primitive.targets).map(
+        (target: any) => readAccessor(gltf, file.binary, target.POSITION).values,
+      );
+
+      const bytes =
+        positions.byteLength +
+        (indices?.byteLength ?? 0) +
+        (joints?.byteLength ?? 0) +
+        (weights?.byteLength ?? 0);
+      dataBytes += bytes;
+
+      return {
+        material: primitive.material ?? -1,
+        vertexCount: positions.count,
+        positions: positions.values,
+        indices: indices === null ? null : indices.values,
+        joints: joints === null ? null : joints.values,
+        weights: weights === null ? null : weights.values,
+        targets,
+        dataBytes: bytes,
+      };
+    }),
+  }));
+```
+
+Обязателен здесь ровно один атрибут — `POSITION`; без него примитив бессмыслен, и загрузчик отказывается сразу. Всё остальное необязательно и отсутствует у большинства ассетов: `null` вместо привязки означает «этот меш не деформируется», а пустой список целей — «форма у него одна». Попутно считается `dataBytes` — объём вершинных данных **в файле**, по которому конвейер главы 6 будет вести бюджет памяти; длина файла для этого не годится, потому что описание в JSON в память не едет.
 
 **Типичные ошибки и подводные камни.**
 
@@ -841,7 +1535,55 @@ export interface GltfMaterial {
   assert.equal(clip.duration, 1);
 ```
 
-В коде это одна строка на канал, и важно, что берётся **максимум**: каналы клипа не обязаны кончаться одновременно.
+В коде это одна строка на канал, и важно, что берётся **максимум**: каналы клипа не обязаны кончаться одновременно. Сэмплер в структурах движка не появляется вовсе — канал забирает у него всё и становится самодостаточным:
+
+```typescript
+export interface GltfChannel {
+  node: number;
+  /** Один из четырёх путей формата: translation, rotation, scale, weights. */
+  path: string;
+  interpolation: string;
+  input: Float64Array;
+  output: Float64Array;
+}
+
+export interface GltfClip {
+  name: string;
+  /** Поля длительности в формате нет: она считается по отметкам времени. */
+  duration: number;
+  channels: GltfChannel[];
+}
+```
+
+Весь разбор анимации — вот он:
+
+```typescript
+  const animations = asArray(gltf.animations).map((animation: any, at: number) => {
+    const samplers = asArray(animation.samplers);
+    let duration = 0;
+    const channels = asArray(animation.channels).map((channel: any) => {
+      const sampler = samplers[channel.sampler];
+      if (sampler === undefined) {
+        throw new SyntaxError(`gltf: animation ${at} has a channel without a sampler`);
+      }
+      const input = readAccessor(gltf, file.binary, sampler.input);
+      const output = readAccessor(gltf, file.binary, sampler.output);
+      // Длительности в формате нет: она равна наибольшей последней отметке
+      // времени среди всех каналов, и каналы не обязаны кончаться вместе.
+      if (input.count > 0) duration = Math.max(duration, input.values[input.count - 1]);
+      return {
+        node: channel.target?.node ?? -1,
+        path: String(channel.target?.path ?? ''),
+        interpolation: String(sampler.interpolation ?? 'LINEAR'),
+        input: input.values,
+        output: output.values,
+      };
+    });
+    return { name: String(animation.name ?? `clip${at}`), duration, channels };
+  });
+```
+
+Сэмплер здесь растворяется: канал забирает у него отметки времени, значения и способ интерполяции и становится самодостаточным. Формат разделяет их ради того, чтобы одна кривая питала несколько каналов; нам же удобнее плоский список, а разделение всё равно уже сделало своё дело — файл от него меньше.
 
 *Пример 3. Порядок компонент кватерниона.* Спецификация говорит, что значения поворота — это кватернион в порядке (x, y, z, w), где w — скалярная часть. Порядок обратен тому, в котором кватернион обычно пишут в учебниках математики, и перепутать его легко:
 
@@ -946,6 +1688,55 @@ export interface GltfMaterial {
 ```
 
 Ожидание «вчетверо меньше» не сбылось: 36 байт позиций превратились в 24, а не в 18. Выигрыш есть, но он треть, а не половина.
+
+Весь квантованный ассет — тот же треугольник, отличающийся от неквантованного ровно тремя местами: типом атрибута, шагом представления и масштабом узла:
+
+```javascript
+export function quantizedTriangleAsset() {
+  // Шаг вершинного атрибута обязан быть кратен четырём (G1), а VEC3 из
+  // `unsigned short` — это шесть байт. Поэтому шаг восемь, и два байта на
+  // вершину уходят в добивку: часть выигрыша съедает выравнивание.
+  const STRIDE = 8;
+  const scale = 1 / 65535;
+
+  const binary = new Uint8Array(8 + 3 * STRIDE);
+  const view = new DataView(binary.buffer);
+  for (let i = 0; i < 3; i += 1) view.setUint16(i * 2, i, true);
+  const quantized = [0, 0, 0, 65535, 0, 0, 0, 65535, 0];
+  for (let i = 0; i < 3; i += 1) {
+    for (let c = 0; c < 3; c += 1) {
+      view.setUint16(8 + i * STRIDE + c * 2, quantized[i * 3 + c], true);
+    }
+  }
+
+  const json = {
+    asset: { version: '2.0', generator: GENERATOR },
+    // Расширение обязано быть требуемым: положить рядом обычную версию данных
+    // формат не даёт, и читатель без его поддержки получил бы модель размером
+    // в 65 535 единиц, не заметив ничего (G3).
+    extensionsUsed: ['KHR_mesh_quantization'],
+    extensionsRequired: ['KHR_mesh_quantization'],
+    scene: 0,
+    scenes: [{ nodes: [0] }],
+    nodes: [{ name: 'triangle', mesh: 0, scale: [scale, scale, scale] }],
+    // Материала здесь нет намеренно: ассет показывает квантование, а не
+    // затенение, и лишние поля только исказили бы сравнение размеров в §7.4.3.
+    meshes: [{ name: 'triangle', primitives: [{ attributes: { POSITION: 1 }, indices: 0 }] }],
+    accessors: [
+      { bufferView: 0, componentType: 5123, count: 3, type: 'SCALAR', min: [0], max: [2] },
+      { bufferView: 1, componentType: 5123, count: 3, type: 'VEC3', min: [0, 0, 0], max: [65535, 65535, 0] },
+    ],
+    buffers: [{ byteLength: binary.byteLength }],
+    bufferViews: [
+      { buffer: 0, byteOffset: 0, byteLength: 6, target: 34963 },
+      { buffer: 0, byteOffset: 8, byteLength: 3 * STRIDE, byteStride: STRIDE, target: 34962 },
+    ],
+  };
+  return packGlb(json, binary);
+}
+```
+
+Сравните его с `triangleAsset` из §7.1.1 построчно — разница ровно в тех местах, о которых говорит расширение, и ни в одном другом. Именно поэтому сравнение размеров в §7.4.3 честное: меняется одно, а не всё сразу.
 
 *Пример 3. Измерено, а не предположено.* Все три числа закреплены проверкой:
 
@@ -1084,7 +1875,7 @@ export const SUPPORTED_EXTENSIONS: readonly string[] = ['KHR_mesh_quantization']
 
 **Г7.Ч4.З5.** Постоянная надбавка к JSON от объявления квантования — около 36 байт, экономия — 6 байт на вершину. Посчитайте точку окупаемости и объясните, почему на учебном ассете этой главы квантование убыточно.
 
-**Г7.Ч4.З6.** *(прикладное)* Соберите скриптом два ассета одной и той же модели из 500 вершин — обычный и квантованный — и измерьте: объём двоичного куска, объём JSON и размер файла целиком. Постройте вывод о точке окупаемости на измерении, а не на прикидке.
+**Г7.Ч4.З6.** *(прикладное)* Соберите скриптом два ассета одной и той же модели из 500 вершин — обычный и квантованный. За образец возьмите `triangleAsset` из §7.1.1 и `quantizedTriangleAsset` из §7.4.1: между ними ровно три различия, и все три надо повторить. Измерьте у обоих объём двоичного куска, объём JSON и размер файла целиком (длина куска JSON лежит в заголовке по смещению 12) и постройте вывод о точке окупаемости на измерении, а не на прикидке.
 
 **Г7.Ч4.З7.** *(прикладное)* Добавьте загрузчику отчёт `describe(asset)`, который для каждого примитива называет объём вершинных данных, тип компонента позиций и признак квантования. Покройте тестом оба ассета главы и объясните, какое из полей отчёта нельзя получить, не прочитав ни одного аксессора.
 
